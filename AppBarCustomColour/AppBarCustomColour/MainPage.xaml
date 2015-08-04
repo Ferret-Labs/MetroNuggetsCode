@@ -1,0 +1,32 @@
+﻿<Page x:Class="AppBarCustomColour.MainPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d">
+    
+    <Page.BottomAppBar>
+        <CommandBar Background="Blue"
+                    Foreground="White">
+            <CommandBar.CommandBarOverflowPresenterStyle>
+                <Style TargetType="CommandBarOverflowPresenter">
+                    <Setter Property="Background"
+                            Value="Blue" />
+                </Style>
+            </CommandBar.CommandBarOverflowPresenterStyle>
+            <CommandBar.PrimaryCommands>
+                <AppBarButton Label="settings"
+                              Icon="Setting"
+                              Foreground="White"/>
+            </CommandBar.PrimaryCommands>
+            <CommandBar.SecondaryCommands>
+                <AppBarButton Label="about"
+                              Foreground="White"/>
+            </CommandBar.SecondaryCommands>
+        </CommandBar>
+    </Page.BottomAppBar>
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    </Grid>
+</Page>
