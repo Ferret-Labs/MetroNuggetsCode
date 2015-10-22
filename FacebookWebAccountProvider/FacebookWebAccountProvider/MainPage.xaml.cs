@@ -56,6 +56,8 @@ namespace FacebookWebAccountProvider
                     try
                     {
                         var tokenResponse = response.ResponseData[0];
+                        var accessToken = tokenResponse?.Token;
+                        var username = tokenResponse?.WebAccount?.UserName;
 
                         // SAVE this response, it has all your authentication info
                     }
@@ -93,7 +95,7 @@ namespace FacebookWebAccountProvider
                 var request = new WebTokenRequest(provider, "public_profile", "1043253362376121");
 
                 // We need to add the redirect uri so that the facebook app knows it's actually us.
-                // This will be the redirect uri you assigned in your facebook developer portal
+                // This will use the store id you assigned in your facebook developer portal
                 request.Properties.Add("redirect_uri", "msft-2f5fb048-0fd0-43e4-ad74-a9fc71e4b53d:/Authorise");
 
                 if (isSilent)
