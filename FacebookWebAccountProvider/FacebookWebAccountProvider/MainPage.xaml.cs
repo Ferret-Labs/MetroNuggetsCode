@@ -21,14 +21,14 @@ namespace FacebookWebAccountProvider
             try
             {
                 // Check whether there is an app for the provider we want to use (facebook)
-                var provider = await WebAuthenticationCoreManager.FindAccountProviderAsync("http://www.facebook.com");
+                var provider = await WebAuthenticationCoreManager.FindAccountProviderAsync("https://www.facebook.com");
                 if (provider != null)
                 {
-                    var response = await GetTokenSilently(provider);
+                    var response = await GetToken(provider, true);
                     if (response != null)
                     {
                         // We have the response token, so we can check if we are authenticated. 
-                        ProcessResponse(response);
+                        await ProcessResponse(response, provider);
                     }
                     else
                     {
@@ -44,11 +44,11 @@ namespace FacebookWebAccountProvider
             }
             catch (Exception ex)
             {
-                
+                var i = 1;
             }
         }
 
-        private void ProcessResponse(WebTokenRequestResult response)
+        private async Task ProcessResponse(WebTokenRequestResult response, WebAccountProvider provider)
         {
             switch (response.ResponseStatus)
             {
@@ -56,7 +56,7 @@ namespace FacebookWebAccountProvider
                     try
                     {
                         var tokenResponse = response.ResponseData[0];
-                        
+
                         // SAVE this response, it has all your authentication info
                     }
                     catch (Exception)
@@ -69,30 +69,45 @@ namespace FacebookWebAccountProvider
                     break;
                 case WebTokenRequestStatus.AccountProviderNotAvailable:
                     // Fall back to WebAuthenticationBroker
-                    Fallbacks();                     
+                    Fallbacks();
                     break;
                 case WebTokenRequestStatus.ProviderError:
                     break;
+                case WebTokenRequestStatus.UserInteractionRequired:
+                    response = await GetToken(provider, false);
+                    if (response != null)
+                    {
+                        await ProcessResponse(response, provider);
+                    }
+                    break;
+
             }
         }
 
-        private async Task<WebTokenRequestResult> GetTokenSilently(WebAccountProvider provider)
+        private async Task<WebTokenRequestResult> GetToken(WebAccountProvider provider, bool isSilent)
         {
             WebTokenRequestResult result = null;
 
             try
             {
-                var request = new WebTokenRequest(provider, "read_stream", "<CLIENTID>");
+                var request = new WebTokenRequest(provider, "public_profile", "1043253362376121");
 
                 // We need to add the redirect uri so that the facebook app knows it's actually us.
                 // This will be the redirect uri you assigned in your facebook developer portal
-                request.Properties.Add("redirect_uri", "msft-<REDIRECTURL>:");
+                request.Properties.Add("redirect_uri", "msft-2f5fb048-0fd0-43e4-ad74-a9fc71e4b53d:/Authorise");
 
-                result = await WebAuthenticationCoreManager.GetTokenSilentlyAsync(request);
+                if (isSilent)
+                {
+                    result = await WebAuthenticationCoreManager.GetTokenSilentlyAsync(request);
+                }
+                else
+                {
+                    result = await WebAuthenticationCoreManager.RequestTokenAsync(request);
+                }
             }
             catch (Exception ex)
             {
-                
+                var i = 1;
             }
 
             return result;
