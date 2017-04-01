@@ -23,8 +23,16 @@ namespace WebViewNavigateExtensions.Extensions
             TypedEventHandler<WebView, WebViewUnsupportedUriSchemeIdentifiedEventArgs> unsupportedUriHandler = null;
             var tcs = new TaskCompletionSource<WebViewNavigationResult>(cancellationToken);
 
+            Action unhookEvents = () =>
+            {
+                webView.NavigationFailed -= failedHandler;
+                webView.NavigationCompleted -= completedHandler;
+                webView.UnsupportedUriSchemeIdentified -= unsupportedUriHandler;
+            };
+
             completedHandler = (sender, args) =>
             {
+                unhookEvents();
                 var status = args.IsSuccess ? 200 : (int) args.WebErrorStatus;
                 if (!tcs.Task.IsCanceled)
                 {
@@ -34,6 +42,7 @@ namespace WebViewNavigateExtensions.Extensions
 
             failedHandler = (sender, args) =>
             {
+                unhookEvents();
                 if (!tcs.Task.IsCanceled)
                 {
                     tcs.SetResult(new WebViewNavigationResult(args.Uri, (int)args.WebErrorStatus));
@@ -42,6 +51,7 @@ namespace WebViewNavigateExtensions.Extensions
 
             unsupportedUriHandler = (sender, args) =>
             {
+                unhookEvents();
                 args.Handled = true;
                 tcs.SetException(new UnsupportedUriSchemeException(args.Uri));
             };
@@ -49,28 +59,30 @@ namespace WebViewNavigateExtensions.Extensions
             Action cancellationAction = null;
             cancellationAction = () =>
             {
-                webView.NavigationFailed -= failedHandler;
-                webView.NavigationCompleted -= completedHandler;
+                unhookEvents();
                 webView.Stop();
             };
 
-            using (var registration = cancellationToken.Register(cancellationAction))
+            try
             {
-                webView.NavigationCompleted += completedHandler;
-                webView.NavigationFailed += failedHandler;
-                webView.UnsupportedUriSchemeIdentified += unsupportedUriHandler;
+                using (var registration = cancellationToken.Register(cancellationAction))
+                {
+                    webView.NavigationCompleted += completedHandler;
+                    webView.NavigationFailed += failedHandler;
+                    webView.UnsupportedUriSchemeIdentified += unsupportedUriHandler;
 
-                var requestMessage = new HttpRequestMessage(httpMethod, uri);
+                    var requestMessage = new HttpRequestMessage(httpMethod, uri);
 
-                webView.NavigateWithHttpRequestMessage(requestMessage);
+                    webView.NavigateWithHttpRequestMessage(requestMessage);
 
-                var result = await tcs.Task;
+                    var result = await tcs.Task;
 
-                webView.NavigationFailed -= failedHandler;
-                webView.NavigationCompleted -= completedHandler;
-                webView.UnsupportedUriSchemeIdentified -= unsupportedUriHandler;
-
-                return result;
+                    return result;
+                }
+            }
+            finally
+            {
+                unhookEvents();
             }
         }
 
