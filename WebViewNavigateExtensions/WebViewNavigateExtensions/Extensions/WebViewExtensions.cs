@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.UI.Xaml.Controls;
@@ -8,40 +9,69 @@ namespace WebViewNavigateExtensions.Extensions
 {
     public static class WebViewExtensions
     {
-        public static Task<WebViewNavigationResult> NavigateAsync(this WebView webView, Uri uri, HttpMethod method = null)
+        public static Task<WebViewNavigationResult> NavigateAsync(
+            this WebView webView, 
+            Uri uri, 
+            HttpMethod method = null,
+            IHttpContent content = null, 
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             var httpMethod = method ?? HttpMethod.Get;
-
+            
             TypedEventHandler<WebView, WebViewNavigationCompletedEventArgs> completedHandler = null;
             WebViewNavigationFailedEventHandler failedHandler = null;
-            var tcs = new TaskCompletionSource<WebViewNavigationResult>();
+            var tcs = new TaskCompletionSource<WebViewNavigationResult>(cancellationToken);
 
             completedHandler = (sender, args) =>
             {
+                webView.NavigationFailed -= failedHandler;
                 webView.NavigationCompleted -= completedHandler;
                 var status = args.IsSuccess ? 200 : (int) args.WebErrorStatus;
-                tcs.SetResult(new WebViewNavigationResult(args.Uri, status));
+                if (!tcs.Task.IsCanceled)
+                {
+                    tcs.SetResult(new WebViewNavigationResult(args.Uri, status));
+                }
             };
 
             failedHandler = (sender, args) =>
             {
                 webView.NavigationFailed -= failedHandler;
-                tcs.SetResult(new WebViewNavigationResult(args.Uri, (int)args.WebErrorStatus));
+                webView.NavigationCompleted -= completedHandler;
+                if (!tcs.Task.IsCanceled)
+                {
+                    tcs.SetResult(new WebViewNavigationResult(args.Uri, (int)args.WebErrorStatus));
+                }
             };
 
-            webView.NavigationCompleted += completedHandler;
-            webView.NavigationFailed += failedHandler;
+            Action cancellationAction = null;
+            cancellationAction = () =>
+            {
+                webView.NavigationFailed -= failedHandler;
+                webView.NavigationCompleted -= completedHandler;
+                webView.Stop();
+            };
 
-            var requestMessage = new HttpRequestMessage(httpMethod, uri);
+            using (var registration = cancellationToken.Register(cancellationAction))
+            {
+                webView.NavigationCompleted += completedHandler;
+                webView.NavigationFailed += failedHandler;
 
-            webView.NavigateWithHttpRequestMessage(requestMessage);
+                var requestMessage = new HttpRequestMessage(httpMethod, uri);
 
-            return tcs.Task;
+                webView.NavigateWithHttpRequestMessage(requestMessage);
+
+                return tcs.Task;
+            }
         }
 
-        public static Task<WebViewNavigationResult> NavigateAsync(this WebView webView, string url, HttpMethod method = null)
+        public static Task<WebViewNavigationResult> NavigateAsync(
+            this WebView webView, 
+            string url, 
+            HttpMethod method = null, 
+            IHttpContent content = null,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
-            return webView.NavigateAsync(new Uri(url), method);
+            return webView.NavigateAsync(new Uri(url), method, content, cancellationToken);
         }
     }
 
