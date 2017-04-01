@@ -9,15 +9,11 @@ namespace WebViewNavigateExtensions.Extensions
 {
     public static class WebViewExtensions
     {
-        public static async Task<WebViewNavigationResult> NavigateAsync(
-            this WebView webView, 
-            Uri uri, 
-            HttpMethod method = null,
-            IHttpContent content = null, 
+        public static Task<WebViewNavigationResult> NavigateAsync(
+            this WebView webView,
+            HttpRequestMessage request,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            var httpMethod = method ?? HttpMethod.Get;
-            
             TypedEventHandler<WebView, WebViewNavigationCompletedEventArgs> completedHandler = null;
             WebViewNavigationFailedEventHandler failedHandler = null;
             TypedEventHandler<WebView, WebViewUnsupportedUriSchemeIdentifiedEventArgs> unsupportedUriHandler = null;
@@ -33,7 +29,7 @@ namespace WebViewNavigateExtensions.Extensions
             completedHandler = (sender, args) =>
             {
                 unhookEvents();
-                var status = args.IsSuccess ? 200 : (int) args.WebErrorStatus;
+                var status = args.IsSuccess ? 200 : (int)args.WebErrorStatus;
                 if (!tcs.Task.IsCanceled)
                 {
                     tcs.SetResult(new WebViewNavigationResult(args.Uri, status));
@@ -71,19 +67,31 @@ namespace WebViewNavigateExtensions.Extensions
                     webView.NavigationFailed += failedHandler;
                     webView.UnsupportedUriSchemeIdentified += unsupportedUriHandler;
 
-                    var requestMessage = new HttpRequestMessage(httpMethod, uri);
+                    webView.NavigateWithHttpRequestMessage(request);
 
-                    webView.NavigateWithHttpRequestMessage(requestMessage);
-
-                    var result = await tcs.Task;
-
-                    return result;
+                    return tcs.Task;
                 }
             }
             finally
             {
                 unhookEvents();
             }
+        }
+
+        public static Task<WebViewNavigationResult> NavigateAsync(
+            this WebView webView, 
+            Uri uri, 
+            HttpMethod method = null,
+            IHttpContent content = null, 
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            var httpMethod = method ?? HttpMethod.Get;
+            var requestMessage = new HttpRequestMessage(httpMethod, uri)
+            {
+                Content = content
+            };
+
+            return webView.NavigateAsync(requestMessage, cancellationToken);
         }
 
         public static Task<WebViewNavigationResult> NavigateAsync(
