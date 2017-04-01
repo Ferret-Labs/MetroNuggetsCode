@@ -9,7 +9,7 @@ namespace WebViewNavigateExtensions.Extensions
 {
     public static class WebViewExtensions
     {
-        public static Task<WebViewNavigationResult> NavigateAsync(
+        public static async Task<WebViewNavigationResult> NavigateAsync(
             this WebView webView, 
             Uri uri, 
             HttpMethod method = null,
@@ -20,12 +20,11 @@ namespace WebViewNavigateExtensions.Extensions
             
             TypedEventHandler<WebView, WebViewNavigationCompletedEventArgs> completedHandler = null;
             WebViewNavigationFailedEventHandler failedHandler = null;
+            TypedEventHandler<WebView, WebViewUnsupportedUriSchemeIdentifiedEventArgs> unsupportedUriHandler = null;
             var tcs = new TaskCompletionSource<WebViewNavigationResult>(cancellationToken);
 
             completedHandler = (sender, args) =>
             {
-                webView.NavigationFailed -= failedHandler;
-                webView.NavigationCompleted -= completedHandler;
                 var status = args.IsSuccess ? 200 : (int) args.WebErrorStatus;
                 if (!tcs.Task.IsCanceled)
                 {
@@ -35,12 +34,16 @@ namespace WebViewNavigateExtensions.Extensions
 
             failedHandler = (sender, args) =>
             {
-                webView.NavigationFailed -= failedHandler;
-                webView.NavigationCompleted -= completedHandler;
                 if (!tcs.Task.IsCanceled)
                 {
                     tcs.SetResult(new WebViewNavigationResult(args.Uri, (int)args.WebErrorStatus));
                 }
+            };
+
+            unsupportedUriHandler = (sender, args) =>
+            {
+                args.Handled = true;
+                tcs.SetException(new UnsupportedUriSchemeException(args.Uri));
             };
 
             Action cancellationAction = null;
@@ -55,12 +58,19 @@ namespace WebViewNavigateExtensions.Extensions
             {
                 webView.NavigationCompleted += completedHandler;
                 webView.NavigationFailed += failedHandler;
+                webView.UnsupportedUriSchemeIdentified += unsupportedUriHandler;
 
                 var requestMessage = new HttpRequestMessage(httpMethod, uri);
 
                 webView.NavigateWithHttpRequestMessage(requestMessage);
 
-                return tcs.Task;
+                var result = await tcs.Task;
+
+                webView.NavigationFailed -= failedHandler;
+                webView.NavigationCompleted -= completedHandler;
+                webView.UnsupportedUriSchemeIdentified -= unsupportedUriHandler;
+
+                return result;
             }
         }
 
@@ -87,6 +97,16 @@ namespace WebViewNavigateExtensions.Extensions
         {
             Uri = uri;
             StatusCode = statusCode;
+        }
+    }
+
+    public class UnsupportedUriSchemeException : Exception
+    {
+        public Uri Uri { get; }
+
+        public UnsupportedUriSchemeException(Uri uri)
+        {
+            Uri = uri;
         }
     }
 }
