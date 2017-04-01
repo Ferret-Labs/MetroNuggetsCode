@@ -20,7 +20,7 @@ namespace WebViewNavigateExtensions
 
         private async void NavigateTo_OnClick(object sender, RoutedEventArgs e)
         {
-            var result = await MainWebView.NavigateAsync("http://microsoft.com");
+            var result = await MainWebView.NavigateToStringAsync("http://microsoft.com");
 
             var dialog = new MessageDialog($"Navigation was successful? {result.IsSuccess}");
             await dialog.ShowAsync();

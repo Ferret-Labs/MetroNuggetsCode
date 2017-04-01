@@ -9,10 +9,52 @@ namespace WebViewNavigateExtensions.Extensions
 {
     public static class WebViewExtensions
     {
+        public static Task<WebViewNavigationResult> NavigateToStringAsync(
+            this WebView webView,
+            string text, 
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return NavigateInternal(webView, () => webView.NavigateToString(text), cancellationToken);
+        }
+
         public static Task<WebViewNavigationResult> NavigateAsync(
             this WebView webView,
             HttpRequestMessage request,
             CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return NavigateInternal(webView, () => webView.NavigateWithHttpRequestMessage(request), cancellationToken);
+        }
+
+        public static Task<WebViewNavigationResult> NavigateAsync(
+            this WebView webView, 
+            Uri uri, 
+            HttpMethod method = null,
+            IHttpContent content = null, 
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            var httpMethod = method ?? HttpMethod.Get;
+            var requestMessage = new HttpRequestMessage(httpMethod, uri)
+            {
+                Content = content
+            };
+
+            return webView.NavigateAsync(requestMessage, cancellationToken);
+        }
+
+        public static Task<WebViewNavigationResult> NavigateAsync(
+            this WebView webView, 
+            string url, 
+            HttpMethod method = null, 
+            IHttpContent content = null,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return webView.NavigateAsync(new Uri(url), method, content, cancellationToken);
+        }
+
+        private static async Task<WebViewNavigationResult> NavigateInternal(
+            WebView webView, 
+            Action navigationAction,
+            CancellationToken cancellationToken)
         {
             TypedEventHandler<WebView, WebViewNavigationCompletedEventArgs> completedHandler = null;
             WebViewNavigationFailedEventHandler failedHandler = null;
@@ -67,41 +109,16 @@ namespace WebViewNavigateExtensions.Extensions
                     webView.NavigationFailed += failedHandler;
                     webView.UnsupportedUriSchemeIdentified += unsupportedUriHandler;
 
-                    webView.NavigateWithHttpRequestMessage(request);
+                    navigationAction();
 
-                    return tcs.Task;
+                    var result = await tcs.Task;
+                    return result;
                 }
             }
             finally
             {
                 unhookEvents();
             }
-        }
-
-        public static Task<WebViewNavigationResult> NavigateAsync(
-            this WebView webView, 
-            Uri uri, 
-            HttpMethod method = null,
-            IHttpContent content = null, 
-            CancellationToken cancellationToken = default(CancellationToken))
-        {
-            var httpMethod = method ?? HttpMethod.Get;
-            var requestMessage = new HttpRequestMessage(httpMethod, uri)
-            {
-                Content = content
-            };
-
-            return webView.NavigateAsync(requestMessage, cancellationToken);
-        }
-
-        public static Task<WebViewNavigationResult> NavigateAsync(
-            this WebView webView, 
-            string url, 
-            HttpMethod method = null, 
-            IHttpContent content = null,
-            CancellationToken cancellationToken = default(CancellationToken))
-        {
-            return webView.NavigateAsync(new Uri(url), method, content, cancellationToken);
         }
     }
 
