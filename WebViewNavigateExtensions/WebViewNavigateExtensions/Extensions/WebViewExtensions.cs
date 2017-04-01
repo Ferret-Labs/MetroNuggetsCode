@@ -11,7 +11,7 @@ namespace WebViewNavigateExtensions.Extensions
     {
         public static Task<WebViewNavigationResult> NavigateToStringAsync(
             this WebView webView,
-            string text, 
+            string text,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             return NavigateInternal(webView, () => webView.NavigateToString(text), cancellationToken);
@@ -26,10 +26,10 @@ namespace WebViewNavigateExtensions.Extensions
         }
 
         public static Task<WebViewNavigationResult> NavigateAsync(
-            this WebView webView, 
-            Uri uri, 
+            this WebView webView,
+            Uri uri,
             HttpMethod method = null,
-            IHttpContent content = null, 
+            IHttpContent content = null,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             var httpMethod = method ?? HttpMethod.Get;
@@ -42,9 +42,9 @@ namespace WebViewNavigateExtensions.Extensions
         }
 
         public static Task<WebViewNavigationResult> NavigateAsync(
-            this WebView webView, 
-            string url, 
-            HttpMethod method = null, 
+            this WebView webView,
+            string url,
+            HttpMethod method = null,
             IHttpContent content = null,
             CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -52,14 +52,14 @@ namespace WebViewNavigateExtensions.Extensions
         }
 
         private static async Task<WebViewNavigationResult> NavigateInternal(
-            WebView webView, 
+            WebView webView,
             Action navigationAction,
             CancellationToken cancellationToken)
         {
             TypedEventHandler<WebView, WebViewNavigationCompletedEventArgs> completedHandler = null;
             WebViewNavigationFailedEventHandler failedHandler = null;
             TypedEventHandler<WebView, WebViewUnsupportedUriSchemeIdentifiedEventArgs> unsupportedUriHandler = null;
-            var tcs = new TaskCompletionSource<WebViewNavigationResult>(cancellationToken);
+            var tcs = new TaskCompletionSource<WebViewNavigationResult>();
 
             Action unhookEvents = () =>
             {
@@ -72,26 +72,20 @@ namespace WebViewNavigateExtensions.Extensions
             {
                 unhookEvents();
                 var status = args.IsSuccess ? 200 : (int)args.WebErrorStatus;
-                if (!tcs.Task.IsCanceled)
-                {
-                    tcs.SetResult(new WebViewNavigationResult(args.Uri, status));
-                }
+                tcs.TrySetResult(new WebViewNavigationResult(args.Uri, status));
             };
 
             failedHandler = (sender, args) =>
             {
                 unhookEvents();
-                if (!tcs.Task.IsCanceled)
-                {
-                    tcs.SetResult(new WebViewNavigationResult(args.Uri, (int)args.WebErrorStatus));
-                }
+                tcs.TrySetResult(new WebViewNavigationResult(args.Uri, (int)args.WebErrorStatus));
             };
 
             unsupportedUriHandler = (sender, args) =>
             {
                 unhookEvents();
                 args.Handled = true;
-                tcs.SetException(new UnsupportedUriSchemeException(args.Uri));
+                tcs.TrySetException(new UnsupportedUriSchemeException(args.Uri));
             };
 
             Action cancellationAction = null;
