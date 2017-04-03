@@ -3,6 +3,8 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
+      xmlns:behaviors="using:WebViewNavigateExtensions.Behaviors"
       mc:Ignorable="d">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
@@ -10,8 +12,13 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        
-        <WebView x:Name="MainWebView"/>
+
+        <WebView x:Name="MainWebView">
+            <interactivity:Interaction.Behaviors>
+                <behaviors:WebViewBehavior Url="{Binding YourUrl}"
+                                           IsLoading="{Binding IsLoading, Mode=TwoWay}"/>
+            </interactivity:Interaction.Behaviors>
+        </WebView>
         
         <Button x:Name="NavigateTo"
                 Grid.Row="1"
